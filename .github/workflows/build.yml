@@ -29,8 +29,10 @@ on:
       - '.github/workflows/build.yml'
 
 env:
-  ACR: registry.cn-hangzhou.aliyuncs.com
-  NS: dfctl
+  # 通过 secret 覆盖以支持企业版 ACR 或其他 registry
+  # 个人版: registry.cn-hangzhou.aliyuncs.com  企业版: <instance>.cn-hangzhou.cr.aliyuncs.com
+  ACR: ${{ secrets.ACR_REGISTRY || 'registry.cn-hangzhou.aliyuncs.com' }}
+  NS: ${{ secrets.ACR_NAMESPACE || 'dfctl' }}
   IMAGE: agent-env
 
 jobs:

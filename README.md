@@ -59,10 +59,12 @@ docker run --rm \
 2. 仓库 Settings → Secrets and variables → Actions,添加:
    - `ACR_USERNAME`:阿里云 ACR 访问凭证用户名
    - `ACR_PASSWORD`:ACR 固定密码(控制台「访问凭证」中设置,非阿里云登录密码)
+   - `ACR_REGISTRY`(可选):registry 地址,默认 `registry.cn-hangzhou.aliyuncs.com`(个人版);企业版填 `<实例名>.cn-hangzhou.cr.aliyuncs.com`
+   - `ACR_NAMESPACE`(可选):命名空间,默认 `dfctl`
    - `ANTHROPIC_API_KEY`(可选):配置后冒烟测试会做一次真实 API 调用
    - `ANTHROPIC_BASE_URL`(可选):第三方 API 端点,冒烟测试和手动触发均可使用
    - `ANTHROPIC_MODEL`(可选):指定冒烟测试使用的模型
-3. 确认 ACR 命名空间 `dfctl` 为公开(拉取免登录)。
+3. 确认 ACR 命名空间为公开(拉取免登录)。
 4. 手动触发一次 workflow(Actions → build-agent-image → Run workflow)验证全链路。
 
 ## 日常使用
