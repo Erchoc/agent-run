@@ -5,6 +5,7 @@ IMAGE="crpi-qiclkwmeg0rcfork.cn-hangzhou.personal.cr.aliyuncs.com/dfctl/agent-en
 VOLUMES_ROOT="$HOME/agent-volumes"
 DEFAULT_PROXY="http://127.0.0.1:7890"
 
+agent="claude"
 username=""
 proxy=""
 persist=false
@@ -23,57 +24,62 @@ usage() {
   ./scripts/run.sh [选项]
 
 选项:
-  -u NAME        用户名(默认随机 agent-xxxx,也用作持久化目录名)
+  -a AGENT       agent 类型: claude (默认) 或 codex
+  -u NAME        用户名(默认随机 agent-xxxx)
   -x             启用宿主机代理(默认 127.0.0.1:7890)
   -X HOST:PORT   自定义代理地址
   -p             持久化(挂载 ~/agent-volumes/<用户名>/.claude)
-  -b URL         API 端点(ANTHROPIC_BASE_URL)
-  -m MODEL       模型 ID(ANTHROPIC_MODEL)
-  -k KEY         API 密钥(ANTHROPIC_API_KEY)
-  -r REPO        Git 仓库地址,启动后自动 clone 到 /workspace
+  -b URL         API 端点(根据 -a 映射到对应环境变量)
+  -m MODEL       模型 ID(根据 -a 映射到对应环境变量)
+  -k KEY         API 密钥(根据 -a 映射到对应环境变量)
+  -r REPO        Git 仓库地址,宿主机 clone 后挂载到 /workspace
   -s PATH        挂载自定义 skills 目录
-  -c CMD         启动命令(默认: 有 -k 时为 claude,否则为 bash)
+  -c CMD         启动命令(默认: claude 或 codex,跟随 -a)
   -h             显示帮助
 
-示例:
-  # 最简启动(随机用户名,无代理,无持久化)
-  ./scripts/run.sh
+参数映射:
+  -a claude  →  ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL
+  -a codex   →  OPENAI_API_KEY / OPENAI_BASE_URL / codex -m MODEL
 
-  # 官方 API + 代理 + 持久化(订阅账号,容器内 /login 登录)
+示例:
+  # Claude Code + 官方 API(需代理)
   ./scripts/run.sh -u alice -x -p
 
-  # DeepSeek 替代(国内直连,模型自动映射,不需要代理)
+  # Claude Code + DeepSeek(国内直连)
   ./scripts/run.sh -u bob -p \
     -b https://api.deepseek.com/anthropic \
     -k sk-your-deepseek-key
 
-  # 通过 OpenRouter 使用 Claude(国内直连,不需要代理)
-  ./scripts/run.sh -u carol -p \
+  # Codex + DeepSeek(国内直连)
+  ./scripts/run.sh -a codex -u bob -p \
+    -b https://api.deepseek.com/v1 \
+    -k sk-your-deepseek-key \
+    -m deepseek-chat
+
+  # Codex + OpenAI 官方(需代理)
+  ./scripts/run.sh -a codex -u carol -x -p
+
+  # Claude Code + OpenRouter
+  ./scripts/run.sh -u dave -p \
     -b https://openrouter.ai/api/v1 \
     -k sk-or-your-key \
     -m anthropic/claude-sonnet-4
 
-  # 指定 Git 仓库(公网 GitHub,需代理)
-  ./scripts/run.sh -u dave -x -p \
+  # 指定 Git 仓库
+  ./scripts/run.sh -u eve -x -p \
     -r https://github.com/user/repo.git
 
-  # 指定 Git 仓库(内网 GitLab,免代理)
-  ./scripts/run.sh -u eve -p \
-    -r https://code.alibaba-inc.com/group/repo.git
-
-  # 自定义 skills + 启动命令
-  ./scripts/run.sh -u frank -x -p -s ~/my-skills -c "claude -p 'hello'"
-
 注意:
-  Claude Code 只能使用 Claude 系列模型名(client 会校验)。
-  DeepSeek 兼容 Anthropic 协议且自动映射模型名,用 -b 指向即可。
-  OpenRouter 等网关也通过 -b 指定。容器内 Codex 独立使用 OpenAI 系模型。
+  同一个 DeepSeek key 可同时用于两个 agent,只是端点不同:
+    Claude Code → https://api.deepseek.com/anthropic
+    Codex       → https://api.deepseek.com/v1
 HELP
   exit 0
 }
 
-while getopts "u:xX:pm:b:k:r:s:c:h" opt; do
+while getopts "a:u:xX:pm:b:k:r:s:c:h" opt; do
   case $opt in
+    a) agent="$OPTARG" ;;
     u) username="$OPTARG" ;;
     x) proxy="$DEFAULT_PROXY" ;;
     X) proxy="http://$OPTARG" ;;
@@ -89,17 +95,26 @@ while getopts "u:xX:pm:b:k:r:s:c:h" opt; do
   esac
 done
 
-if [[ -n "$base_url" && -z "$api_key" ]]; then
-  echo "错误: 指定了 -b (API 端点) 但未指定 -k (API 密钥)" >&2
-  exit 1
+if [[ "$agent" != "claude" && "$agent" != "codex" ]]; then
+  echo "错误: -a 只支持 claude 或 codex" >&2; exit 1
 fi
 
-# 有 API key 时默认直接启动 claude,否则进 bash
-[[ -z "$cmd" ]] && { [[ -n "$api_key" ]] && cmd="claude" || cmd="bash"; }
+if [[ -n "$base_url" && -z "$api_key" ]]; then
+  echo "错误: 指定了 -b (API 端点) 但未指定 -k (API 密钥)" >&2; exit 1
+fi
+
+# 默认命令跟随 agent 类型
+if [[ -z "$cmd" ]]; then
+  if [[ -n "$api_key" ]]; then
+    cmd="$agent"
+  else
+    cmd="bash"
+  fi
+fi
 
 [[ -z "$username" ]] && username="agent-$(head -c4 /dev/urandom | xxd -p)"
 
-# 如果指定了 repo,宿主机先 clone,然后挂载进容器
+# 如果指定了 repo,宿主机先 clone
 repo_name=""
 repo_mount=""
 if [[ -n "$repo" ]]; then
@@ -117,10 +132,17 @@ fi
 
 args=(docker run -it --rm --network host --hostname "$username")
 
-[[ -n "$proxy" ]]    && args+=(-e "HTTPS_PROXY=$proxy" -e "HTTP_PROXY=$proxy")
-[[ -n "$api_key" ]]  && args+=(-e "ANTHROPIC_API_KEY=$api_key")
-[[ -n "$base_url" ]] && args+=(-e "ANTHROPIC_BASE_URL=$base_url")
-[[ -n "$model" ]]    && args+=(-e "ANTHROPIC_MODEL=$model")
+[[ -n "$proxy" ]] && args+=(-e "HTTPS_PROXY=$proxy" -e "HTTP_PROXY=$proxy")
+
+# 根据 agent 类型映射环境变量
+if [[ "$agent" == "claude" ]]; then
+  [[ -n "$api_key" ]]  && args+=(-e "ANTHROPIC_API_KEY=$api_key")
+  [[ -n "$base_url" ]] && args+=(-e "ANTHROPIC_BASE_URL=$base_url")
+  [[ -n "$model" ]]    && args+=(-e "ANTHROPIC_MODEL=$model")
+else
+  [[ -n "$api_key" ]]  && args+=(-e "OPENAI_API_KEY=$api_key")
+  [[ -n "$base_url" ]] && args+=(-e "OPENAI_BASE_URL=$base_url")
+fi
 
 if $persist; then
   vol_dir="$VOLUMES_ROOT/$username/.claude"
@@ -137,11 +159,18 @@ if [[ -n "$skills" ]]; then
   args+=(-v "$skills:/home/agent/.claude/skills:ro")
 fi
 
+# codex 的 model 通过命令行 flag 传入
+codex_model_flag=""
+if [[ "$agent" == "codex" && -n "$model" && "$cmd" == "codex" ]]; then
+  codex_model_flag="-m $model"
+fi
+
 C='\033[36m'; B='\033[1m'; D='\033[2m'; R='\033[0m'
 
 echo ""
 echo -e "  ${B}☁  AgentRun${R} ${D}· powered by 空岛云${R}"
 echo -e "  ${D}──────────────────────────────────${R}"
+echo -e "  ${C}agent${R}   $agent"
 echo -e "  ${C}user${R}    $username"
 [[ -n "$proxy" ]]      && echo -e "  ${C}proxy${R}   $proxy"
 [[ -n "$base_url" ]]   && echo -e "  ${C}url${R}     $base_url"
@@ -150,22 +179,18 @@ echo -e "  ${C}user${R}    $username"
 $persist               && echo -e "  ${C}volume${R}  ~/${vol_dir#$HOME/}"
 [[ -n "$repo_mount" ]] && echo -e "  ${C}repo${R}    $repo_mount"
 [[ -n "$skills" ]]     && echo -e "  ${C}skills${R}  $skills"
-echo -e "  ${C}cmd${R}     $cmd"
+echo -e "  ${C}cmd${R}     $cmd $codex_model_flag"
 echo -e "  ${D}──────────────────────────────────${R}"
 echo ""
 
-# 容器启动时先初始化 .claude.json(消除 "configuration file not found" 报错)
-# 然后 exec 用户命令
+# 容器启动初始化
 init='
+# Claude Code: 创建 .claude.json 避免首次启动报错
 if [ ! -f "$HOME/.claude.json" ]; then
   cat > "$HOME/.claude.json" <<CONF
-{
-  "autoUpdates": false,
-  "hasCompletedOnboarding": true,
-  "numStartups": 1
-}
+{"autoUpdates":false,"hasCompletedOnboarding":true,"numStartups":1}
 CONF
 fi
 '
 
-exec "${args[@]}" "$IMAGE" bash -lic "$init exec $cmd"
+exec "${args[@]}" "$IMAGE" bash -lic "$init exec $cmd $codex_model_flag"
