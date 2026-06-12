@@ -16,7 +16,7 @@ cmd="bash"
 
 usage() {
   cat <<'HELP'
-agent-env 本地启动脚本
+☁  空岛云 · AgentRun — 本地启动脚本
 
 用法:
   ./scripts/run.sh [选项]
@@ -104,15 +104,20 @@ if [[ -n "$skills" ]]; then
   args+=(-v "$skills:/home/agent/.claude/skills:ro")
 fi
 
-echo "┌─ agent-env ─────────────────────────"
-echo "│ 用户:   $username"
-[[ -n "$proxy" ]]    && echo "│ 代理:   $proxy"
-[[ -n "$base_url" ]] && echo "│ 端点:   $base_url"
-[[ -n "$model" ]]    && echo "│ 模型:   $model"
-[[ -n "$api_key" ]]  && echo "│ 密钥:   ${api_key:0:8}..."
-$persist             && echo "│ 持久化: $VOLUMES_ROOT/$username/.claude"
-[[ -n "$skills" ]]   && echo "│ Skills: $skills"
-echo "│ 命令:   $cmd"
-echo "└──────────────────────────────────────"
+C='\033[36m'; B='\033[1m'; D='\033[2m'; R='\033[0m'
+
+echo ""
+echo -e "  ${B}☁  AgentRun${R} ${D}· powered by 空岛云${R}"
+echo -e "  ${D}──────────────────────────────────${R}"
+echo -e "  ${C}user${R}    $username"
+[[ -n "$proxy" ]]    && echo -e "  ${C}proxy${R}   $proxy"
+[[ -n "$base_url" ]] && echo -e "  ${C}url${R}     $base_url"
+[[ -n "$model" ]]    && echo -e "  ${C}model${R}   $model"
+[[ -n "$api_key" ]]  && echo -e "  ${C}key${R}     ${api_key:0:8}..."
+$persist             && echo -e "  ${C}volume${R}  ~/${vol_dir#$HOME/}"
+[[ -n "$skills" ]]   && echo -e "  ${C}skills${R}  $skills"
+echo -e "  ${C}cmd${R}     $cmd"
+echo -e "  ${D}──────────────────────────────────${R}"
+echo ""
 
 exec "${args[@]}" "$IMAGE" $cmd
