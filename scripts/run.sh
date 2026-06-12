@@ -42,6 +42,11 @@ usage() {
   # 官方 API + 代理 + 持久化(订阅账号,容器内 /login 登录)
   ./scripts/run.sh -u alice -x -p
 
+  # DeepSeek 替代(国内直连,模型自动映射,不需要代理)
+  ./scripts/run.sh -u bob -p \
+    -b https://api.deepseek.com/anthropic \
+    -k sk-your-deepseek-key
+
   # 通过 OpenRouter 使用 Claude(国内直连,不需要代理)
   ./scripts/run.sh -u bob -p \
     -b https://openrouter.ai/api/v1 \
@@ -60,9 +65,9 @@ usage() {
   ./scripts/run.sh -u eve -x -p -s ~/my-skills -c "claude -p 'hello'"
 
 注意:
-  Claude Code 只能使用 Claude 系列模型,不支持 DeepSeek / GPT 等。
-  -b 用于指定第三方 Claude 代理网关(如 OpenRouter),不是替换模型。
-  容器内的 Codex 可独立使用 OpenAI 系模型(通过 config.toml 配置)。
+  Claude Code 只能使用 Claude 系列模型名(client 会校验)。
+  DeepSeek 兼容 Anthropic 协议且自动映射模型名,用 -b 指向即可。
+  OpenRouter 等网关也通过 -b 指定。容器内 Codex 独立使用 OpenAI 系模型。
 HELP
   exit 0
 }
