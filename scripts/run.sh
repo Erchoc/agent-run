@@ -13,7 +13,7 @@ base_url=""
 api_key=""
 skills=""
 repo=""
-cmd="bash"
+cmd=""
 
 usage() {
   cat <<'HELP'
@@ -32,7 +32,7 @@ usage() {
   -k KEY         API 密钥(ANTHROPIC_API_KEY)
   -r REPO        Git 仓库地址,启动后自动 clone 到 /workspace
   -s PATH        挂载自定义 skills 目录
-  -c CMD         启动命令(默认 bash)
+  -c CMD         启动命令(默认: 有 -k 时为 claude,否则为 bash)
   -h             显示帮助
 
 示例:
@@ -48,21 +48,21 @@ usage() {
     -k sk-your-deepseek-key
 
   # 通过 OpenRouter 使用 Claude(国内直连,不需要代理)
-  ./scripts/run.sh -u bob -p \
+  ./scripts/run.sh -u carol -p \
     -b https://openrouter.ai/api/v1 \
     -k sk-or-your-key \
     -m anthropic/claude-sonnet-4
 
   # 指定 Git 仓库(公网 GitHub,需代理)
-  ./scripts/run.sh -u carol -x -p \
+  ./scripts/run.sh -u dave -x -p \
     -r https://github.com/user/repo.git
 
   # 指定 Git 仓库(内网 GitLab,免代理)
-  ./scripts/run.sh -u dave -p \
+  ./scripts/run.sh -u eve -p \
     -r https://code.alibaba-inc.com/group/repo.git
 
   # 自定义 skills + 启动命令
-  ./scripts/run.sh -u eve -x -p -s ~/my-skills -c "claude -p 'hello'"
+  ./scripts/run.sh -u frank -x -p -s ~/my-skills -c "claude -p 'hello'"
 
 注意:
   Claude Code 只能使用 Claude 系列模型名(client 会校验)。
@@ -94,9 +94,13 @@ if [[ -n "$base_url" && -z "$api_key" ]]; then
   exit 1
 fi
 
+# 有 API key 时默认直接启动 claude,否则进 bash
+[[ -z "$cmd" ]] && { [[ -n "$api_key" ]] && cmd="claude" || cmd="bash"; }
+
 [[ -z "$username" ]] && username="agent-$(head -c4 /dev/urandom | xxd -p)"
 
 # 如果指定了 repo,宿主机先 clone,然后挂载进容器
+repo_name=""
 repo_mount=""
 if [[ -n "$repo" ]]; then
   repo_name="$(basename "$repo" .git)"
@@ -144,10 +148,24 @@ echo -e "  ${C}user${R}    $username"
 [[ -n "$model" ]]      && echo -e "  ${C}model${R}   $model"
 [[ -n "$api_key" ]]    && echo -e "  ${C}key${R}     ${api_key:0:8}..."
 $persist               && echo -e "  ${C}volume${R}  ~/${vol_dir#$HOME/}"
-[[ -n "$repo_mount" ]] && echo -e "  ${C}repo${R}    $repo_mount → /workspace/$repo_name"
+[[ -n "$repo_mount" ]] && echo -e "  ${C}repo${R}    $repo_mount"
 [[ -n "$skills" ]]     && echo -e "  ${C}skills${R}  $skills"
 echo -e "  ${C}cmd${R}     $cmd"
 echo -e "  ${D}──────────────────────────────────${R}"
 echo ""
 
-exec "${args[@]}" "$IMAGE" $cmd
+# 容器启动时先初始化 .claude.json(消除 "configuration file not found" 报错)
+# 然后 exec 用户命令
+init='
+if [ ! -f "$HOME/.claude.json" ]; then
+  cat > "$HOME/.claude.json" <<CONF
+{
+  "autoUpdates": false,
+  "hasCompletedOnboarding": true,
+  "numStartups": 1
+}
+CONF
+fi
+'
+
+exec "${args[@]}" "$IMAGE" bash -lic "$init exec $cmd"
