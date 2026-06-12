@@ -183,9 +183,14 @@ echo ""
 
 # 容器内初始化脚本(创建配置文件,跳过首次引导)
 read -r -d '' init << 'INIT' || true
-# Claude Code: 跳过首次引导
+# Claude Code: 恢复 .claude.json(持久化 volume 里有 backup)
 if [ ! -f "$HOME/.claude.json" ]; then
-  echo '{"autoUpdates":false,"hasCompletedOnboarding":true,"numStartups":1}' > "$HOME/.claude.json"
+  latest_backup=$(ls -t "$HOME/.claude/backups/.claude.json.backup."* 2>/dev/null | head -1)
+  if [ -n "$latest_backup" ]; then
+    cp "$latest_backup" "$HOME/.claude.json"
+  else
+    echo '{"autoUpdates":false,"hasCompletedOnboarding":true,"numStartups":1}' > "$HOME/.claude.json"
+  fi
 fi
 
 # Codex: 预写 auth.json + config.toml 跳过登录引导
