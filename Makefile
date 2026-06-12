@@ -11,25 +11,22 @@ ACR           ?= crpi-qiclkwmeg0rcfork.cn-hangzhou.personal.cr.aliyuncs.com
 NS            ?= dfctl
 FULL_IMAGE     = $(ACR)/$(NS)/$(IMAGE)
 
-# .env 中读取,也可命令行覆盖: make cc-run API_KEY=sk-xxx
+# .env 中读取
 API_KEY       ?=
+OPENAI_KEY    ?=
 PROXY         ?=
 USER          ?= dev
-
-# 代理 flag
-_PROXY_FLAG   := $(if $(PROXY),-x,)
-_PROXY_X_FLAG := $(if $(filter-out 127.0.0.1:7890,$(PROXY)),-X $(PROXY),)
 
 .PHONY: help build build-no-cache test run cc-run cx-run push pull versions clean info
 
 help: ## 显示帮助
 	@echo "☁  空岛云 · AgentRun"
 	@echo "────────────────────────────────────"
-	@grep -E '^[a-z_-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-16s %s\n", $$1, $$2}'
+	@grep -E '^[a-z_-]+:.*## ' Makefile | awk -F ':.*## ' '{printf "  make %-16s %s\n", $$1, $$2}'
 	@echo ""
 	@echo "快速测试(配置 .env 后一键启动):"
-	@echo "  make cc-run                          # Claude Code + DeepSeek"
-	@echo "  make cx-run                          # Codex + DeepSeek"
+	@echo "  make cc-run                          # Claude Code + DeepSeek(国内直连)"
+	@echo "  make cx-run                          # Codex + OpenAI(需代理 + OPENAI_KEY)"
 	@echo "  make cc-run USER=alice ARGS='-r ...'  # 自定义用户 + 额外参数"
 	@echo ""
 	@echo "构建相关:"
@@ -38,7 +35,7 @@ help: ## 显示帮助
 	@echo "  make test                            # 冒烟测试本地镜像"
 	@echo "  make push TAG=20260612               # 推送到 ACR"
 	@echo ""
-	@echo "配置: 复制 .env.example 为 .env 填入 API_KEY"
+	@echo "配置: cp .env.example .env 然后填入 API_KEY"
 
 build: ## 本地构建镜像
 	docker build \
@@ -62,16 +59,15 @@ test: ## 冒烟测试本地镜像
 run: ## 自由启动(ARGS 传参)
 	bash scripts/run.sh $(ARGS)
 
-cc-run: _check-key ## Claude Code + DeepSeek 一键启动
+cc-run: ## Claude Code + DeepSeek 一键启动
+	@test -n "$(API_KEY)" || { echo "错误: 未配置 API_KEY,请编辑 .env"; exit 1; }
 	bash scripts/run.sh -a claude -u $(USER) -p \
 	  -b https://api.deepseek.com/anthropic \
-	  -k $(API_KEY) $(_PROXY_FLAG) $(_PROXY_X_FLAG) $(ARGS)
+	  -k $(API_KEY) $(ARGS)
 
-cx-run: _check-key ## Codex + DeepSeek 一键启动
-	bash scripts/run.sh -a codex -u $(USER) -p \
-	  -b https://api.deepseek.com/v1 \
-	  -k $(API_KEY) \
-	  -m deepseek-chat $(_PROXY_FLAG) $(_PROXY_X_FLAG) $(ARGS)
+cx-run: ## Codex + OpenAI 一键启动(需代理)
+	bash scripts/run.sh -a codex -u $(USER) -p -x \
+	  $(if $(OPENAI_KEY),-k $(OPENAI_KEY)) $(ARGS)
 
 push: ## 推送到 ACR
 	docker tag $(IMAGE):$(TAG) $(FULL_IMAGE):$(TAG)
@@ -96,6 +92,3 @@ info: ## 查看本地镜像信息
 clean: ## 删除本地镜像
 	docker rmi $(IMAGE):$(TAG) 2>/dev/null || true
 	@echo "已清理: $(IMAGE):$(TAG)"
-
-_check-key:
-	@test -n "$(API_KEY)" || { echo "错误: 未配置 API_KEY,请创建 .env 文件或传参 make cc-run API_KEY=sk-xxx"; exit 1; }

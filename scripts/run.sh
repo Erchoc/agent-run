@@ -50,11 +50,8 @@ usage() {
     -b https://api.deepseek.com/anthropic \
     -k sk-your-deepseek-key
 
-  # Codex + DeepSeek(国内直连)
-  ./scripts/run.sh -a codex -u bob -p \
-    -b https://api.deepseek.com/v1 \
-    -k sk-your-deepseek-key \
-    -m deepseek-chat
+  # Codex + OpenAI(需代理,容器内登录或传 -k OpenAI-key)
+  ./scripts/run.sh -a codex -u bob -x -p
 
   # Codex + OpenAI 官方(需代理)
   ./scripts/run.sh -a codex -u carol -x -p
@@ -70,9 +67,8 @@ usage() {
     -r https://github.com/user/repo.git
 
 注意:
-  同一个 DeepSeek key 可同时用于两个 agent,只是端点不同:
-    Claude Code → https://api.deepseek.com/anthropic
-    Codex       → https://api.deepseek.com/v1
+  Claude Code 支持第三方 Anthropic 兼容端点(DeepSeek / OpenRouter)。
+  Codex 只支持 OpenAI 官方(需代理),不支持第三方端点。
 HELP
   exit 0
 }
