@@ -142,6 +142,8 @@ if [[ "$agent" == "claude" ]]; then
 else
   [[ -n "$api_key" ]]  && args+=(-e "OPENAI_API_KEY=$api_key")
   [[ -n "$base_url" ]] && args+=(-e "OPENAI_BASE_URL=$base_url")
+  # codex model 通过 CODEX_MODEL 传入容器,init 脚本写入 config.toml
+  [[ -n "$model" ]]    && args+=(-e "CODEX_MODEL=$model")
 fi
 
 if $persist; then
@@ -159,7 +161,7 @@ if [[ -n "$skills" ]]; then
   args+=(-v "$skills:/home/agent/.claude/skills:ro")
 fi
 
-# codex 的 model 通过命令行 flag 传入
+# codex model flag for direct invocation
 codex_model_flag=""
 if [[ "$agent" == "codex" && -n "$model" && "$cmd" == "codex" ]]; then
   codex_model_flag="-m $model"
@@ -183,14 +185,26 @@ echo -e "  ${C}cmd${R}     $cmd $codex_model_flag"
 echo -e "  ${D}──────────────────────────────────${R}"
 echo ""
 
-# 容器启动初始化
-init='
-# Claude Code: 创建 .claude.json 避免首次启动报错
+# 容器内初始化脚本(创建配置文件,跳过首次引导)
+read -r -d '' init << 'INIT' || true
+# Claude Code: 跳过首次引导
 if [ ! -f "$HOME/.claude.json" ]; then
-  cat > "$HOME/.claude.json" <<CONF
-{"autoUpdates":false,"hasCompletedOnboarding":true,"numStartups":1}
-CONF
+  echo '{"autoUpdates":false,"hasCompletedOnboarding":true,"numStartups":1}' > "$HOME/.claude.json"
 fi
-'
 
-exec "${args[@]}" "$IMAGE" bash -lic "$init exec $cmd $codex_model_flag"
+# Codex: 预写 auth.json + config.toml 跳过登录引导
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  mkdir -p "$HOME/.codex"
+  if [ ! -f "$HOME/.codex/auth.json" ]; then
+    cat > "$HOME/.codex/auth.json" <<AUTHEOF
+{"auth_mode":"api_key","OPENAI_API_KEY":"$OPENAI_API_KEY"}
+AUTHEOF
+  fi
+  if [ ! -f "$HOME/.codex/config.toml" ]; then
+    echo "model = \"${CODEX_MODEL:-deepseek-chat}\"" > "$HOME/.codex/config.toml"
+  fi
+fi
+INIT
+
+exec "${args[@]}" "$IMAGE" bash -lic "$init
+exec $cmd $codex_model_flag"
