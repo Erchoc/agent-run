@@ -20,10 +20,19 @@ run codex --version
 echo "==> 非 root 确认"
 [[ "$(run whoami)" == "agent" ]] || { echo "✗ 容器默认用户不是 agent"; exit 1; }
 
-# 可选:真实 API 调用验证(需要 ANTHROPIC_API_KEY)
+# 收集需要透传的 API 环境变量(非空才传)
+API_ENV_ARGS=()
+for var in ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL \
+           OPENAI_API_KEY OPENAI_BASE_URL OPENAI_MODEL; do
+  [[ -n "${!var:-}" ]] && API_ENV_ARGS+=(-e "$var")
+done
+
+# 可选:真实 API 调用验证
 if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
   echo "==> Claude Code 真实调用"
-  docker run --rm -e ANTHROPIC_API_KEY "$IMG" \
+  [[ -n "${ANTHROPIC_BASE_URL:-}" ]] && echo "    endpoint: ${ANTHROPIC_BASE_URL}"
+  [[ -n "${ANTHROPIC_MODEL:-}" ]]    && echo "    model:    ${ANTHROPIC_MODEL}"
+  docker run --rm "${API_ENV_ARGS[@]}" "$IMG" \
     claude -p "reply with exactly: SMOKE_OK" --max-turns 1 | grep -q "SMOKE_OK" \
     && echo " ✓ API 调用通过" \
     || { echo "✗ API 调用失败"; exit 1; }

@@ -14,6 +14,14 @@ on:
         description: 'Codex 版本(留空 = npm 最新)'
         required: false
         default: ''
+      anthropic_base_url:
+        description: 'Anthropic API 端点(留空 = 用 secret 或官方默认)'
+        required: false
+        default: ''
+      anthropic_model:
+        description: 'Claude 模型 ID(留空 = CLI 默认)'
+        required: false
+        default: ''
   push:
     branches: [main]
     paths:
@@ -71,8 +79,9 @@ jobs:
       - name: 冒烟测试
         run: bash scripts/smoke-test.sh ${{ env.IMAGE }}:candidate
         env:
-          # 可选:配置后会做一次真实 API 调用验证(repo secrets 中添加)
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url || secrets.ANTHROPIC_BASE_URL }}
+          ANTHROPIC_MODEL: ${{ inputs.anthropic_model || secrets.ANTHROPIC_MODEL }}
 
       - name: 推送 ACR(latest + 日期 tag)
         uses: docker/build-push-action@v6

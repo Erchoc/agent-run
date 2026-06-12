@@ -13,6 +13,28 @@ GitHub Actions (海外, 直连 Docker Hub / npm)
 
 CI 在海外构建是关键设计:Docker Hub 和 npm 直连无障碍,彻底绕开国内拉取 Docker Hub 的问题;Mac Mini 只和 ACR 打交道。
 
+## API 配置
+
+镜像默认支持第三方 API 兼容端点(OpenRouter、自建网关、Bedrock 代理等),运行容器时通过 `-e` 注入:
+
+| 变量 | 用途 | 必填 |
+|------|------|------|
+| `ANTHROPIC_API_KEY` | Claude Code API 密钥 | 是 |
+| `ANTHROPIC_BASE_URL` | API 端点,不设则走官方默认 | 否 |
+| `ANTHROPIC_MODEL` | 模型 ID,覆盖 CLI 默认 | 否 |
+| `OPENAI_API_KEY` | Codex API 密钥 | 是 |
+| `OPENAI_BASE_URL` | API 端点,不设则走官方默认 | 否 |
+| `OPENAI_MODEL` | 模型 ID,覆盖 CLI 默认 | 否 |
+
+```bash
+# 示例:使用第三方兼容端点
+docker run --rm \
+  -e ANTHROPIC_API_KEY=sk-xxx \
+  -e ANTHROPIC_BASE_URL=https://your-gateway.example.com/v1 \
+  -e ANTHROPIC_MODEL=claude-sonnet-4-20250514 \
+  agent-env:latest claude -p "hello"
+```
+
 ## 初始化(一次性)
 
 1. 创建 GitHub 仓库,推入本项目文件。
@@ -20,6 +42,8 @@ CI 在海外构建是关键设计:Docker Hub 和 npm 直连无障碍,彻底绕�
    - `ACR_USERNAME`:阿里云 ACR 访问凭证用户名
    - `ACR_PASSWORD`:ACR 固定密码(控制台「访问凭证」中设置,非阿里云登录密码)
    - `ANTHROPIC_API_KEY`(可选):配置后冒烟测试会做一次真实 API 调用
+   - `ANTHROPIC_BASE_URL`(可选):第三方 API 端点,冒烟测试和手动触发均可使用
+   - `ANTHROPIC_MODEL`(可选):指定冒烟测试使用的模型
 3. 确认 ACR 命名空间 `dfctl` 为公开(拉取免登录)。
 4. 手动触发一次 workflow(Actions → build-agent-image → Run workflow)验证全链路。
 
