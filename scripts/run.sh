@@ -197,7 +197,7 @@ if [ -n "${OPENAI_API_KEY:-}" ]; then
   mkdir -p "$HOME/.codex"
   if [ ! -f "$HOME/.codex/auth.json" ]; then
     cat > "$HOME/.codex/auth.json" <<AUTHEOF
-{"auth_mode":"api_key","OPENAI_API_KEY":"$OPENAI_API_KEY"}
+{"auth_mode":"apikey","OPENAI_API_KEY":"$OPENAI_API_KEY"}
 AUTHEOF
   fi
   if [ ! -f "$HOME/.codex/config.toml" ]; then
