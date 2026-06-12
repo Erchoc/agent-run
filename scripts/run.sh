@@ -115,4 +115,4 @@ $persist             && echo "│ 持久化: $VOLUMES_ROOT/$username/.claude"
 echo "│ 命令:   $cmd"
 echo "└──────────────────────────────────────"
 
-exec "${args[@]}" $cmd
+exec "${args[@]}" "$IMAGE" $cmd
