@@ -26,7 +26,7 @@ help: ## 显示帮助
 	@echo ""
 	@echo "快速测试(配置 .env 后一键启动):"
 	@echo "  make cc-run                          # Claude Code + DeepSeek(国内直连)"
-	@echo "  make cx-run                          # Codex + OpenAI(需代理 + OPENAI_KEY)"
+	@echo "  make cx-run                          # Codex + OpenAI(自动代理,容器内登录)"
 	@echo "  make cc-run USER=alice ARGS='-r ...'  # 自定义用户 + 额外参数"
 	@echo ""
 	@echo "构建相关:"
@@ -65,7 +65,7 @@ cc-run: ## Claude Code + DeepSeek 一键启动
 	  -b https://api.deepseek.com/anthropic \
 	  -k $(API_KEY) $(ARGS)
 
-cx-run: ## Codex + OpenAI 一键启动(需代理)
+cx-run: ## Codex + OpenAI 一键启动(自动代理)
 	bash scripts/run.sh -a codex -u $(USER) -p -x \
 	  $(if $(OPENAI_KEY),-k $(OPENAI_KEY)) $(ARGS)
 
