@@ -15,24 +15,42 @@ CI 在海外构建是关键设计:Docker Hub 和 npm 直连无障碍,彻底绕�
 
 ## API 配置
 
-镜像默认支持第三方 API 兼容端点(OpenRouter、自建网关、Bedrock 代理等),运行容器时通过 `-e` 注入:
+### Claude Code(环境变量驱动)
 
 | 变量 | 用途 | 必填 |
 |------|------|------|
-| `ANTHROPIC_API_KEY` | Claude Code API 密钥 | 是 |
-| `ANTHROPIC_BASE_URL` | API 端点,不设则走官方默认 | 否 |
-| `ANTHROPIC_MODEL` | 模型 ID,覆盖 CLI 默认 | 否 |
-| `OPENAI_API_KEY` | Codex API 密钥 | 是 |
-| `OPENAI_BASE_URL` | API 端点,不设则走官方默认 | 否 |
-| `OPENAI_MODEL` | 模型 ID,覆盖 CLI 默认 | 否 |
+| `ANTHROPIC_API_KEY` | API 密钥 | 是 |
+| `ANTHROPIC_BASE_URL` | API 端点(第三方网关 / OpenRouter 等),不设则走官方 | 否 |
+| `ANTHROPIC_MODEL` | 模型 ID,覆盖 CLI 默认模型 | 否 |
+
+还有三个细粒度覆盖变量(按模型族分别指定):
+`ANTHROPIC_DEFAULT_OPUS_MODEL`、`ANTHROPIC_DEFAULT_SONNET_MODEL`、`ANTHROPIC_DEFAULT_HAIKU_MODEL`
 
 ```bash
-# 示例:使用第三方兼容端点
+# Claude Code 使用第三方兼容端点
 docker run --rm \
   -e ANTHROPIC_API_KEY=sk-xxx \
   -e ANTHROPIC_BASE_URL=https://your-gateway.example.com/v1 \
-  -e ANTHROPIC_MODEL=claude-sonnet-4-20250514 \
+  -e ANTHROPIC_MODEL=claude-sonnet-4-6 \
   agent-env:latest claude -p "hello"
+```
+
+### Codex(config.toml + flag 驱动)
+
+Codex 不通过环境变量配置 model / base_url,而是用 `~/.codex/config.toml` 或命令行 flag:
+
+| 方式 | 示例 |
+|------|------|
+| config.toml | `model = "o3"` 写入 `~/.codex/config.toml` |
+| 命令行 flag | `codex -m o3` 或 `codex -c 'model="o3"'` |
+| API Key | `OPENAI_API_KEY` 环境变量(OpenAI SDK 标准) |
+
+```bash
+# Codex 使用自定义模型
+docker run --rm \
+  -e OPENAI_API_KEY=sk-xxx \
+  -v ./codex-config.toml:/home/agent/.codex/config.toml:ro \
+  agent-env:latest codex -m o3 -p "hello"
 ```
 
 ## 初始化(一次性)

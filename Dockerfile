@@ -31,17 +31,21 @@ RUN npm install -g \
 ENV DISABLE_AUTOUPDATER=1
 
 # ---- API 配置层:第三方兼容 host 为默认姿态 ----
-# Claude Code — 支持任意 Anthropic API 兼容端点(OpenRouter / 自建网关 / Bedrock 等)
-#   ANTHROPIC_API_KEY        必填,运行时 -e 注入
-#   ANTHROPIC_BASE_URL       API 端点,不设则 CLI 走官方默认
-#   ANTHROPIC_MODEL          模型 ID,覆盖 CLI 默认模型选择
-# Codex — 支持任意 OpenAI API 兼容端点
-#   OPENAI_API_KEY           必填,运行时 -e 注入
-#   OPENAI_BASE_URL          API 端点,不设则 CLI 走官方默认
-#   OPENAI_MODEL             模型 ID,覆盖 CLI 默认模型选择
+#
+# Claude Code(环境变量驱动,容器 -e 注入即可):
+#   ANTHROPIC_API_KEY              必填
+#   ANTHROPIC_BASE_URL             API 端点,不设则走官方默认
+#   ANTHROPIC_MODEL                模型 ID,覆盖 CLI 默认模型
+#   ANTHROPIC_DEFAULT_OPUS_MODEL   可选,Opus 类模型默认值
+#   ANTHROPIC_DEFAULT_SONNET_MODEL 可选,Sonnet 类模型默认值
+#   ANTHROPIC_DEFAULT_HAIKU_MODEL  可选,Haiku 类模型默认值
+#
+# Codex(config.toml 驱动,非环境变量):
+#   OPENAI_API_KEY                 API 密钥(OpenAI SDK 标准变量)
+#   模型 / provider / base_url    → ~/.codex/config.toml 或 --model / -c flag
+#   容器启动时挂载自定义 config.toml 到 /home/agent/.codex/config.toml
 #
 # 不在此处 ENV 赋空值:部分 CLI 区分"未设"与"空字符串",赋空反而报错。
-# 运行容器时按需 -e 注入即可。
 
 # 版本信息写入 label,便于追溯
 LABEL agent.claude-code.version="${CLAUDE_CODE_VERSION}" \

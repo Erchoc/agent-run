@@ -20,10 +20,9 @@ run codex --version
 echo "==> 非 root 确认"
 [[ "$(run whoami)" == "agent" ]] || { echo "✗ 容器默认用户不是 agent"; exit 1; }
 
-# 收集需要透传的 API 环境变量(非空才传)
+# 收集需要透传的 Claude Code API 环境变量(非空才传)
 API_ENV_ARGS=()
-for var in ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL \
-           OPENAI_API_KEY OPENAI_BASE_URL OPENAI_MODEL; do
+for var in ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL; do
   [[ -n "${!var:-}" ]] && API_ENV_ARGS+=(-e "$var")
 done
 
